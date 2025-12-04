@@ -4,17 +4,26 @@
     <meta charset="UTF-8">
     <title>DataVis - Assignment 3</title>
 
-    <div id="visualization-container"></div>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
 
 </head>
 
 <body>
 
-<!-- YOUR SOLUTION GOES HERE-->
+<!-- Toggle buttons for switching between layouts -->
+<div id="controls">
+    <button id="force-btn" class="active">Force Layout</button>
+    <button id="map-btn">Map Layout</button>
+</div>
+
+<div id="visualization-container"></div>
 
 <!-- note: d3 version 7.9.0 this time! -->
 <script src="libs/d3.v7.min.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="force.js"></script>
 <script src="main.js"></script>
 
