@@ -83,6 +83,13 @@ body {
     position: relative;
 }
 
+/* Map layout specific styling */
+#visualization-container.map-layout {
+    grid-template-columns: 250px 1fr;
+    gap: 15px;
+    padding: 20px;
+}
+
 /* Info Panel */
 #info-panel {
     background:
@@ -245,10 +252,22 @@ body {
     background-color: #999;
 }
 
-/* SVG styling - Aviation themed */
+/* SVG styling - Aviation themed with 3D grid */
 svg {
     border-radius: 8px;
     background:
+        repeating-linear-gradient(0deg,
+            transparent,
+            transparent 49px,
+            rgba(52, 152, 219, 0.08) 49px,
+            rgba(52, 152, 219, 0.08) 50px
+        ),
+        repeating-linear-gradient(90deg,
+            transparent,
+            transparent 49px,
+            rgba(52, 152, 219, 0.08) 49px,
+            rgba(52, 152, 219, 0.08) 50px
+        ),
         radial-gradient(ellipse at 20% 30%, rgba(255, 255, 255, 0.6) 0%, transparent 40%),
         radial-gradient(ellipse at 80% 60%, rgba(255, 255, 255, 0.4) 0%, transparent 35%),
         radial-gradient(ellipse at 50% 80%, rgba(255, 255, 255, 0.3) 0%, transparent 30%),
@@ -262,7 +281,8 @@ svg {
     box-shadow:
         inset 0 2px 8px rgba(0, 0, 0, 0.08),
         inset 0 -20px 40px rgba(135, 206, 235, 0.2),
-        0 4px 12px rgba(0, 0, 0, 0.12);
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
 }
@@ -272,18 +292,40 @@ svg {
     position: relative;
     width: 100%;
     grid-column: 2;
+    perspective: 1500px;
+    perspective-origin: center center;
+}
+
+/* Add 3D depth to SVG */
+svg {
+    transform-style: preserve-3d;
+    will-change: transform;
 }
 
 .node {
-    transition: all 0.2s ease;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
     stroke-width: 2.5px !important;
 }
 
 .node:hover {
-    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5)) brightness(1.2);
-    transform: scale(1.15);
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6)) brightness(1.2);
+    transform: scale(1.2) translateZ(10px);
     cursor: pointer;
+}
+
+.node.pinned {
+    filter: drop-shadow(0 0 12px rgba(46, 204, 113, 0.8)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    stroke-width: 4px !important;
+    stroke: #2ecc71 !important;
+    transform: scale(1.1);
+}
+
+.node.dragging {
+    filter: drop-shadow(0 0 12px rgba(243, 156, 18, 0.8)) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+    stroke-width: 4px !important;
+    stroke: #f39c12 !important;
+    transform: scale(1.15);
 }
 
 /* Airport marker styling - resembles airport icons */
@@ -301,7 +343,7 @@ svg {
 }
 
 .link {
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     stroke-dasharray: 8, 4;
     animation: dash 40s linear infinite;
     stroke: rgba(70, 130, 180, 0.4) !important;
@@ -314,15 +356,23 @@ svg {
     }
 }
 
-.link.active-route {
-    stroke: rgba(231, 76, 60, 0.7) !important;
+.link.highlighted {
+    stroke: rgba(231, 76, 60, 0.85) !important;
     stroke-dasharray: 10, 5;
     animation: dash 20s linear infinite, pulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.6));
+}
+
+.link.active-route {
+    stroke: rgba(231, 76, 60, 0.85) !important;
+    stroke-dasharray: 10, 5;
+    animation: dash 20s linear infinite, pulse 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.6));
 }
 
 @keyframes pulse {
     0%, 100% {
-        opacity: 0.6;
+        opacity: 0.7;
     }
     50% {
         opacity: 1;
@@ -331,8 +381,8 @@ svg {
 
 .link:hover {
     stroke-width: 4px !important;
-    stroke: rgba(231, 76, 60, 0.8) !important;
-    filter: drop-shadow(0 0 6px rgba(231, 76, 60, 0.7));
+    stroke: rgba(231, 76, 60, 0.9) !important;
+    filter: drop-shadow(0 0 10px rgba(231, 76, 60, 0.8));
     animation: dash 15s linear infinite;
 }
 
@@ -341,11 +391,22 @@ svg {
         0 0 4px white,
         0 0 4px white,
         0 0 6px white,
-        0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: opacity 0.3s ease;
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: 'Segoe UI', Tahoma, sans-serif;
     font-weight: 700;
     letter-spacing: 0.5px;
+    transform-style: preserve-3d;
+}
+
+.label.highlighted {
+    text-shadow:
+        0 0 6px white,
+        0 0 8px white,
+        0 0 10px rgba(231, 76, 60, 0.5),
+        0 2px 6px rgba(0, 0, 0, 0.5);
+    font-size: 14px;
 }
 
 /* Map styling */
@@ -355,8 +416,28 @@ svg {
     box-shadow:
         0 4px 16px rgba(0, 0, 0, 0.15),
         inset 0 0 20px rgba(135, 206, 235, 0.1);
-    grid-column: 1 / -1;
+    grid-column: 2;
     border: 2px solid rgba(52, 152, 219, 0.2);
+    position: relative;
+}
+
+/* Ensure Leaflet tiles are fully visible */
+.leaflet-container {
+    background-color: #ddd !important;
+    z-index: 1;
+}
+
+.leaflet-tile-pane {
+    opacity: 1 !important;
+    z-index: 2 !important;
+}
+
+.leaflet-overlay-pane {
+    z-index: 3 !important;
+}
+
+.leaflet-marker-pane {
+    z-index: 4 !important;
 }
 
 .flight-route {
