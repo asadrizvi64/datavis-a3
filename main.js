@@ -48,6 +48,7 @@ window.onload = () => {
 
     // Create container
     const container = d3.select("#visualization-container");
+    container.classed("map-layout", false); // Ensure force layout doesn't have map-layout class
 
     // Add info panel
     const infoPanel = container.append("div")
@@ -180,55 +181,62 @@ window.onload = () => {
 
     // Interaction handlers
     let selectedNode = null;
+    let isDragging = false;
 
     node.on("mouseover", function(event, d) {
       if (selectedNode && selectedNode !== d) return;
+      if (isDragging) return;
 
+      d3.select(this).classed("hovering", true);
       highlightConnections(d);
       updateNodeInfo(d, links);
     })
     .on("mouseout", function(event, d) {
       if (selectedNode === d) return;
-      resetHighlight();
+      if (isDragging) return;
+
+      d3.select(this).classed("hovering", false);
       if (!selectedNode) {
+        resetHighlight();
         updateNodeInfo(null, links);
       }
     })
     .on("click", function(event, d) {
       event.stopPropagation();
+
       if (selectedNode === d) {
-        // Unpin
+        // Unpin the node
         d.fx = null;
         d.fy = null;
         selectedNode = null;
+
+        node.filter(n => n === d).classed("pinned", false);
         resetHighlight();
         updateNodeInfo(null, links);
-        d3.select(this).attr("stroke", "#fff").attr("stroke-width", 2);
       } else {
-        // Pin
+        // Unpin previous node if any
         if (selectedNode) {
           selectedNode.fx = null;
           selectedNode.fy = null;
-          node.filter(n => n === selectedNode)
-            .attr("stroke", "#fff")
-            .attr("stroke-width", 2);
+          node.filter(n => n === selectedNode).classed("pinned", false);
         }
+
+        // Pin the new node
         d.fx = d.x;
         d.fy = d.y;
         selectedNode = d;
+
+        node.filter(n => n === d).classed("pinned", true);
         highlightConnections(d);
         updateNodeInfo(d, links);
-        d3.select(this).attr("stroke", "#2ecc71").attr("stroke-width", 4);
       }
     });
 
     svg.on("click", function() {
-      if (selectedNode) {
+      if (selectedNode && !isDragging) {
         selectedNode.fx = null;
         selectedNode.fy = null;
-        node.filter(n => n === selectedNode)
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 2);
+        node.filter(n => n === selectedNode).classed("pinned", false);
         selectedNode = null;
         resetHighlight();
         updateNodeInfo(null, links);
@@ -247,20 +255,32 @@ window.onload = () => {
         }
       });
 
-      node.attr("opacity", n => connectedNodes.has(n.id) ? 1 : 0.1);
-      link.attr("stroke-opacity", l => connectedLinks.has(l) ? 0.8 : 0.05)
-        .attr("stroke", l => connectedLinks.has(l) ? "#e74c3c" : "#999")
-        .attr("stroke-width", l => connectedLinks.has(l) ? Math.max(l.value / 500, 2) : Math.max(l.value / 1000, 0.5));
+      // Use opacity and classes for stable highlighting
+      node.attr("opacity", n => connectedNodes.has(n.id) ? 1 : 0.15);
 
-      label.attr("opacity", n => connectedNodes.has(n.id) ? 1 : 0.1);
+      link.each(function(l) {
+        const isConnected = connectedLinks.has(l);
+        d3.select(this)
+          .classed("highlighted", isConnected)
+          .attr("stroke-opacity", isConnected ? 0.85 : 0.05)
+          .attr("stroke-width", isConnected ? Math.max(l.value / 500, 3) : Math.max(l.value / 1000, 0.5));
+      });
+
+      label.each(function(n) {
+        const isConnected = connectedNodes.has(n.id);
+        d3.select(this)
+          .classed("highlighted", isConnected)
+          .attr("opacity", isConnected ? 1 : 0.15);
+      });
     }
 
     function resetHighlight() {
       node.attr("opacity", 1);
-      link.attr("stroke-opacity", 0.3)
-        .attr("stroke", "#999")
+      link.classed("highlighted", false)
+        .attr("stroke-opacity", 0.3)
         .attr("stroke-width", d => Math.max(d.value / 1000, 0.5));
-      label.attr("opacity", 1);
+      label.classed("highlighted", false)
+        .attr("opacity", 1);
     }
 
     function updateNodeInfo(d, links) {
@@ -300,11 +320,15 @@ window.onload = () => {
 
     function drag(simulation) {
       function dragstarted(event, d) {
+        isDragging = true;
         if (!event.active) simulation.alphaTarget(0.3).restart();
+
         d.fx = d.x;
         d.fy = d.y;
+
+        d3.select(this).classed("dragging", true);
         highlightConnections(d);
-        d3.select(this).attr("stroke", "#f39c12").attr("stroke-width", 4);
+        updateNodeInfo(d, links);
       }
 
       function dragged(event, d) {
@@ -314,14 +338,26 @@ window.onload = () => {
 
       function dragended(event, d) {
         if (!event.active) simulation.alphaTarget(0);
-        if (!selectedNode || selectedNode !== d) {
+        isDragging = false;
+
+        d3.select(this).classed("dragging", false);
+
+        // If this node is not the selected node, unpin it
+        if (selectedNode !== d) {
           d.fx = null;
           d.fy = null;
-          resetHighlight();
+
           if (selectedNode) {
+            // Keep the selected node highlighted
             highlightConnections(selectedNode);
+            updateNodeInfo(selectedNode, links);
+          } else {
+            resetHighlight();
+            updateNodeInfo(null, links);
           }
-          d3.select(this).attr("stroke", "#fff").attr("stroke-width", 2);
+        } else {
+          // Keep the pinned node highlighted
+          highlightConnections(d);
         }
       }
 
@@ -381,6 +417,7 @@ window.onload = () => {
     // Create map container
     const container = d3.select("#visualization-container");
     container.html(""); // Clear previous content
+    container.classed("map-layout", true); // Add map-layout class
 
     // Add info panel for map
     const infoPanel = container.append("div")
@@ -396,18 +433,18 @@ window.onload = () => {
         </div>
       `);
 
-    const mapContainer = container.append("div")
-      .style("position", "relative")
-      .style("grid-column", "1 / -1");
-
-    const mapDiv = mapContainer.append("div")
+    const mapDiv = container.append("div")
       .attr("id", "map")
       .style("width", "100%")
       .style("height", "650px");
 
     // Add map legend overlay
-    const mapLegend = mapContainer.append("div")
+    const mapLegend = container.append("div")
       .attr("id", "map-legend")
+      .style("position", "absolute")
+      .style("top", "20px")
+      .style("right", "20px")
+      .style("z-index", "1000")
       .html(`
         <h4 style="margin-top: 0; margin-bottom: 12px; color: #2c3e50; font-size: 14px; border-bottom: 2px solid #3498db; padding-bottom: 6px;">🗺️ Map Legend</h4>
         <div class="legend-item" style="margin-bottom: 10px; font-size: 12px;">
