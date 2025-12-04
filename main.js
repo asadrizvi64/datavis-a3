@@ -1,8 +1,9 @@
 window.onload = () => {
   // Set the width and height of the SVG container
-  const width = 500;
-  const height = 500;
+  const width = 1000;
+  const height = 700;
   let map = null; // Store map reference for cleanup
+  let currentLayout = "force";
 
   async function forceLayout() {
     const nodes = [];
@@ -31,19 +32,318 @@ window.onload = () => {
       }
     });
 
+    // Calculate node values (total flight volume)
     nodes.forEach(n => n.value = links.reduce(
       (a, l) => l.source === n.id || l.target === n.id ? a + l.value : a, 0)
     );
 
-    ForceGraph(
-      { nodes, links },
-      {
-        width,
-        height,
-        linkStrength: d => Math.sqrt(d.data.value) / 10000,
-        nodeRadius: d => d.value / 20000,
-        linkStrokeWidth: d => d.value / 1000,
+    // Sort nodes by value to identify major airports
+    const sortedNodes = [...nodes].sort((a, b) => b.value - a.value);
+    const majorAirports = new Set(sortedNodes.slice(0, 15).map(n => n.id));
+
+    // Create statistics
+    const totalFlights = links.reduce((sum, l) => sum + l.value, 0);
+    const avgFlights = totalFlights / links.length;
+    const maxRoute = links.reduce((max, l) => l.value > max.value ? l : max, links[0]);
+
+    // Create container
+    const container = d3.select("#visualization-container");
+
+    // Add info panel
+    const infoPanel = container.append("div")
+      .attr("id", "info-panel")
+      .html(`
+        <h3>Flight Network Visualization</h3>
+        <div id="stats">
+          <p><strong>Total Airports:</strong> ${nodes.length}</p>
+          <p><strong>Total Routes:</strong> ${links.length}</p>
+          <p><strong>Total Flights:</strong> ${totalFlights.toLocaleString()}</p>
+          <p><strong>Busiest Route:</strong> ${maxRoute.source} → ${maxRoute.target} (${maxRoute.value.toLocaleString()} flights)</p>
+        </div>
+        <div id="node-info">
+          <p class="hint">Hover over airports to see details<br>Click to pin/unpin<br>Drag to reposition</p>
+        </div>
+      `);
+
+    // Add legend
+    const legend = container.append("div")
+      .attr("id", "legend")
+      .html(`
+        <h4>Legend</h4>
+        <div class="legend-item">
+          <div class="legend-circle large"></div>
+          <span>Major Hub (high traffic)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-circle medium"></div>
+          <span>Medium Airport</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-circle small"></div>
+          <span>Small Airport</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line thick"></div>
+          <span>High volume route</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line thin"></div>
+          <span>Low volume route</span>
+        </div>
+      `);
+
+    // Create SVG
+    const svg = container.append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", [-width / 2, -height / 2, width, height]);
+
+    // Add arrow marker for directed edges
+    svg.append("defs").selectAll("marker")
+      .data(["arrow"])
+      .join("marker")
+      .attr("id", "arrow")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 20)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("fill", "#999")
+      .attr("d", "M0,-5L10,0L0,5");
+
+    // Create link group
+    const linkGroup = svg.append("g")
+      .attr("class", "links")
+      .attr("stroke-linecap", "round");
+
+    // Create node group
+    const nodeGroup = svg.append("g")
+      .attr("class", "nodes");
+
+    // Create label group
+    const labelGroup = svg.append("g")
+      .attr("class", "labels");
+
+    // Create force simulation
+    const simulation = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id).strength(d => Math.sqrt(d.value) / 10000))
+      .force("charge", d3.forceManyBody().strength(-30))
+      .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.value) / 200 + 5))
+      .force("center", d3.forceCenter(0, 0));
+
+    // Create links
+    const link = linkGroup.selectAll("line")
+      .data(links)
+      .join("line")
+      .attr("class", "link")
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0.3)
+      .attr("stroke-width", d => Math.max(d.value / 1000, 0.5))
+      .attr("marker-end", d => d.value > 8000 ? "url(#arrow)" : null);
+
+    // Create nodes
+    const node = nodeGroup.selectAll("circle")
+      .data(nodes)
+      .join("circle")
+      .attr("class", "node")
+      .attr("r", d => Math.max(Math.sqrt(d.value) / 200, 3))
+      .attr("fill", d => {
+        const ratio = d.value / sortedNodes[0].value;
+        if (ratio > 0.5) return "#e74c3c"; // Red for major hubs
+        if (ratio > 0.2) return "#f39c12"; // Orange for medium
+        return "#3498db"; // Blue for small
+      })
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .style("cursor", "pointer")
+      .call(drag(simulation));
+
+    // Add labels for major airports
+    const label = labelGroup.selectAll("text")
+      .data(nodes.filter(d => majorAirports.has(d.id)))
+      .join("text")
+      .attr("class", "label")
+      .attr("text-anchor", "middle")
+      .attr("dy", d => -Math.sqrt(d.value) / 200 - 5)
+      .style("font-size", "12px")
+      .style("font-weight", "bold")
+      .style("fill", "#2c3e50")
+      .style("pointer-events", "none")
+      .style("user-select", "none")
+      .text(d => d.id);
+
+    // Interaction handlers
+    let selectedNode = null;
+
+    node.on("mouseover", function(event, d) {
+      if (selectedNode && selectedNode !== d) return;
+
+      highlightConnections(d);
+      updateNodeInfo(d, links);
+    })
+    .on("mouseout", function(event, d) {
+      if (selectedNode === d) return;
+      resetHighlight();
+      if (!selectedNode) {
+        updateNodeInfo(null, links);
+      }
+    })
+    .on("click", function(event, d) {
+      event.stopPropagation();
+      if (selectedNode === d) {
+        // Unpin
+        d.fx = null;
+        d.fy = null;
+        selectedNode = null;
+        resetHighlight();
+        updateNodeInfo(null, links);
+        d3.select(this).attr("stroke", "#fff").attr("stroke-width", 2);
+      } else {
+        // Pin
+        if (selectedNode) {
+          selectedNode.fx = null;
+          selectedNode.fy = null;
+          node.filter(n => n === selectedNode)
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2);
+        }
+        d.fx = d.x;
+        d.fy = d.y;
+        selectedNode = d;
+        highlightConnections(d);
+        updateNodeInfo(d, links);
+        d3.select(this).attr("stroke", "#2ecc71").attr("stroke-width", 4);
+      }
+    });
+
+    svg.on("click", function() {
+      if (selectedNode) {
+        selectedNode.fx = null;
+        selectedNode.fy = null;
+        node.filter(n => n === selectedNode)
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 2);
+        selectedNode = null;
+        resetHighlight();
+        updateNodeInfo(null, links);
+      }
+    });
+
+    function highlightConnections(d) {
+      const connectedNodes = new Set();
+      const connectedLinks = new Set();
+
+      links.forEach(l => {
+        if (l.source.id === d.id || l.target.id === d.id) {
+          connectedLinks.add(l);
+          connectedNodes.add(l.source.id);
+          connectedNodes.add(l.target.id);
+        }
       });
+
+      node.attr("opacity", n => connectedNodes.has(n.id) ? 1 : 0.1);
+      link.attr("stroke-opacity", l => connectedLinks.has(l) ? 0.8 : 0.05)
+        .attr("stroke", l => connectedLinks.has(l) ? "#e74c3c" : "#999")
+        .attr("stroke-width", l => connectedLinks.has(l) ? Math.max(l.value / 500, 2) : Math.max(l.value / 1000, 0.5));
+
+      label.attr("opacity", n => connectedNodes.has(n.id) ? 1 : 0.1);
+    }
+
+    function resetHighlight() {
+      node.attr("opacity", 1);
+      link.attr("stroke-opacity", 0.3)
+        .attr("stroke", "#999")
+        .attr("stroke-width", d => Math.max(d.value / 1000, 0.5));
+      label.attr("opacity", 1);
+    }
+
+    function updateNodeInfo(d, links) {
+      const nodeInfoDiv = d3.select("#node-info");
+      if (!d) {
+        nodeInfoDiv.html('<p class="hint">Hover over airports to see details<br>Click to pin/unpin<br>Drag to reposition</p>');
+        return;
+      }
+
+      const outgoing = links.filter(l => l.source.id === d.id);
+      const incoming = links.filter(l => l.target.id === d.id);
+      const totalOut = outgoing.reduce((sum, l) => sum + l.value, 0);
+      const totalIn = incoming.reduce((sum, l) => sum + l.value, 0);
+
+      const topRoutes = [...outgoing, ...incoming]
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+      let routesHtml = '<ul class="routes-list">';
+      topRoutes.forEach(route => {
+        const isOutgoing = route.source.id === d.id;
+        const other = isOutgoing ? route.target.id : route.source.id;
+        const arrow = isOutgoing ? "→" : "←";
+        routesHtml += `<li>${arrow} ${other}: ${route.value.toLocaleString()} flights</li>`;
+      });
+      routesHtml += '</ul>';
+
+      nodeInfoDiv.html(`
+        <h4>Airport: ${d.id}</h4>
+        <p><strong>Total Traffic:</strong> ${d.value.toLocaleString()} flights</p>
+        <p><strong>Outgoing:</strong> ${totalOut.toLocaleString()} | <strong>Incoming:</strong> ${totalIn.toLocaleString()}</p>
+        <p><strong>Connections:</strong> ${outgoing.length + incoming.length} routes</p>
+        <p><strong>Top Routes:</strong></p>
+        ${routesHtml}
+      `);
+    }
+
+    function drag(simulation) {
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+        highlightConnections(d);
+        d3.select(this).attr("stroke", "#f39c12").attr("stroke-width", 4);
+      }
+
+      function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      }
+
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        if (!selectedNode || selectedNode !== d) {
+          d.fx = null;
+          d.fy = null;
+          resetHighlight();
+          if (selectedNode) {
+            highlightConnections(selectedNode);
+          }
+          d3.select(this).attr("stroke", "#fff").attr("stroke-width", 2);
+        }
+      }
+
+      return d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended);
+    }
+
+    function ticked() {
+      link
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+      node
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+
+      label
+        .attr("x", d => d.x)
+        .attr("y", d => d.y);
+    }
+
+    simulation.on("tick", ticked);
   }
 
   async function mapLayout() {
@@ -57,6 +357,7 @@ window.onload = () => {
       airportMap.set(airport.iata, {
         name: airport.name,
         city: airport.city,
+        state: airport.state,
         lat: +airport.latitude,
         lng: +airport.longitude
       });
@@ -77,10 +378,24 @@ window.onload = () => {
     const container = d3.select("#visualization-container");
     container.html(""); // Clear previous content
 
+    // Add info panel for map
+    const infoPanel = container.append("div")
+      .attr("id", "info-panel")
+      .html(`
+        <h3>Geographic Flight Network</h3>
+        <div id="stats">
+          <p><strong>Airports:</strong> ${airportVolumes.size}</p>
+          <p><strong>Routes:</strong> ${flights.length}</p>
+        </div>
+        <div id="node-info">
+          <p class="hint">Click on airports or routes to see details</p>
+        </div>
+      `);
+
     const mapDiv = container.append("div")
       .attr("id", "map")
       .style("width", "100%")
-      .style("height", "600px");
+      .style("height", "650px");
 
     // Initialize Leaflet map
     map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
@@ -91,6 +406,49 @@ window.onload = () => {
       maxZoom: 19
     }).addTo(map);
 
+    // Store route lines for interaction
+    const routeLines = [];
+
+    // Add flight connections as lines first (so they're under markers)
+    flights.forEach(flight => {
+      const origin = airportMap.get(flight.origin);
+      const dest = airportMap.get(flight.destination);
+      const count = +flight.count;
+
+      if (origin && dest && origin.lat && origin.lng && dest.lat && dest.lng) {
+        const opacity = Math.min(count / 15000, 0.6);
+        const weight = Math.max(count / 2500, 1);
+
+        const line = L.polyline(
+          [[origin.lat, origin.lng], [dest.lat, dest.lng]],
+          {
+            color: '#3498db',
+            weight: weight,
+            opacity: opacity,
+            className: 'flight-route'
+          }
+        );
+
+        line.on('click', function() {
+          updateMapInfo({
+            type: 'route',
+            from: flight.origin,
+            to: flight.destination,
+            fromCity: `${origin.city}, ${origin.state}`,
+            toCity: `${dest.city}, ${dest.state}`,
+            count: count
+          });
+          // Highlight this route
+          routeLines.forEach(r => r.setStyle({ color: '#3498db', weight: r.options.weight }));
+          this.setStyle({ color: '#e74c3c', weight: weight * 2 });
+        });
+
+        line.bindTooltip(`${flight.origin} → ${flight.destination}<br>${count.toLocaleString()} flights`);
+        line.addTo(map);
+        routeLines.push(line);
+      }
+    });
+
     // Add airport markers
     airports.forEach(airport => {
       const lat = +airport.latitude;
@@ -99,44 +457,61 @@ window.onload = () => {
 
       if (lat && lng && airportVolumes.has(iata)) {
         const volume = airportVolumes.get(iata);
-        const radius = Math.sqrt(volume) / 100; // Scale radius based on volume
+        const radius = Math.sqrt(volume) / 80;
 
-        L.circleMarker([lat, lng], {
+        // Color based on volume
+        let color;
+        if (volume > 100000) color = "#e74c3c";
+        else if (volume > 50000) color = "#f39c12";
+        else color = "#3498db";
+
+        const marker = L.circleMarker([lat, lng], {
           radius: radius,
-          fillColor: "#ff7800",
-          color: "#000",
-          weight: 1,
+          fillColor: color,
+          color: "#fff",
+          weight: 2,
           opacity: 1,
-          fillOpacity: 0.6
-        }).bindPopup(`<b>${airport.name}</b><br>${airport.city}, ${airport.state}<br>Code: ${iata}<br>Flights: ${volume}`)
-          .addTo(map);
+          fillOpacity: 0.7
+        });
+
+        marker.on('click', function() {
+          updateMapInfo({
+            type: 'airport',
+            code: iata,
+            name: airport.name,
+            city: airport.city,
+            state: airport.state,
+            volume: volume
+          });
+        });
+
+        marker.bindTooltip(`<b>${airport.name}</b><br>${airport.city}, ${airport.state}<br>${iata} - ${volume.toLocaleString()} flights`);
+        marker.addTo(map);
       }
     });
 
-    // Add flight connections as lines
-    flights.forEach(flight => {
-      const origin = airportMap.get(flight.origin);
-      const dest = airportMap.get(flight.destination);
-      const count = +flight.count;
-
-      if (origin && dest && origin.lat && origin.lng && dest.lat && dest.lng) {
-        const opacity = Math.min(count / 20000, 0.8); // Scale opacity based on flight count
-        const weight = Math.max(count / 3000, 1); // Scale line weight
-
-        L.polyline(
-          [[origin.lat, origin.lng], [dest.lat, dest.lng]],
-          {
-            color: '#3388ff',
-            weight: weight,
-            opacity: opacity
-          }
-        ).bindPopup(`${flight.origin} → ${flight.destination}<br>Flights: ${count}`)
-         .addTo(map);
+    function updateMapInfo(data) {
+      const nodeInfoDiv = d3.select("#node-info");
+      if (data.type === 'airport') {
+        nodeInfoDiv.html(`
+          <h4>${data.code} - ${data.name}</h4>
+          <p><strong>Location:</strong> ${data.city}, ${data.state}</p>
+          <p><strong>Total Traffic:</strong> ${data.volume.toLocaleString()} flights</p>
+        `);
+      } else if (data.type === 'route') {
+        nodeInfoDiv.html(`
+          <h4>Route Details</h4>
+          <p><strong>From:</strong> ${data.from} (${data.fromCity})</p>
+          <p><strong>To:</strong> ${data.to} (${data.toCity})</p>
+          <p><strong>Flights:</strong> ${data.count.toLocaleString()}</p>
+        `);
       }
-    });
+    }
   }
 
   function draw(layoutType) {
+    currentLayout = layoutType;
+
     // Remove traces of leaflet when toggling
     if (map) {
       map.remove();
