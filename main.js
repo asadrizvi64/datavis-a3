@@ -65,14 +65,24 @@ window.onload = () => {
         </div>
       `);
 
-    // Add legend
-    const legend = container.append("div")
+    // Create SVG container wrapper
+    const svgContainer = container.append("div")
+      .attr("id", "svg-container");
+
+    // Create SVG
+    const svg = svgContainer.append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", [-width / 2, -height / 2, width, height]);
+
+    // Add legend as overlay on top of SVG
+    const legend = svgContainer.append("div")
       .attr("id", "legend")
       .html(`
-        <h4>Legend</h4>
+        <h4>✈️ Legend</h4>
         <div class="legend-item">
           <div class="legend-circle large"></div>
-          <span>Major Hub (high traffic)</span>
+          <span>Major Hub</span>
         </div>
         <div class="legend-item">
           <div class="legend-circle medium"></div>
@@ -84,19 +94,13 @@ window.onload = () => {
         </div>
         <div class="legend-item">
           <div class="legend-line thick"></div>
-          <span>High volume route</span>
+          <span>High volume</span>
         </div>
         <div class="legend-item">
           <div class="legend-line thin"></div>
-          <span>Low volume route</span>
+          <span>Low volume</span>
         </div>
       `);
-
-    // Create SVG
-    const svg = container.append("svg")
-      .attr("width", width)
-      .attr("height", height)
-      .attr("viewBox", [-width / 2, -height / 2, width, height]);
 
     // Add arrow marker for directed edges
     svg.append("defs").selectAll("marker")
@@ -392,10 +396,33 @@ window.onload = () => {
         </div>
       `);
 
-    const mapDiv = container.append("div")
+    const mapContainer = container.append("div")
+      .style("position", "relative")
+      .style("grid-column", "1 / -1");
+
+    const mapDiv = mapContainer.append("div")
       .attr("id", "map")
       .style("width", "100%")
       .style("height", "650px");
+
+    // Add map legend overlay
+    const mapLegend = mapContainer.append("div")
+      .attr("id", "map-legend")
+      .html(`
+        <h4 style="margin-top: 0; margin-bottom: 12px; color: #2c3e50; font-size: 14px; border-bottom: 2px solid #3498db; padding-bottom: 6px;">🗺️ Map Legend</h4>
+        <div class="legend-item" style="margin-bottom: 10px; font-size: 12px;">
+          <div class="legend-circle large"></div>
+          <span>Major Hub</span>
+        </div>
+        <div class="legend-item" style="margin-bottom: 10px; font-size: 12px;">
+          <div class="legend-circle medium"></div>
+          <span>Medium</span>
+        </div>
+        <div class="legend-item" style="margin-bottom: 10px; font-size: 12px;">
+          <div class="legend-circle small"></div>
+          <span>Small</span>
+        </div>
+      `);
 
     // Initialize Leaflet map
     map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
