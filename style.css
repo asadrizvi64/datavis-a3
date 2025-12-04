@@ -1,57 +1,310 @@
 body {
-    height: 100%;
     margin: 0;
     padding: 20px;
-    font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
 }
 
 /* Controls styling */
 #controls {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 15px;
+    margin-bottom: 25px;
     justify-content: center;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
 #controls button {
-    padding: 10px 20px;
+    padding: 12px 30px;
     font-size: 16px;
-    border: 2px solid #3388ff;
+    font-weight: 600;
+    border: 2px solid #3498db;
     background-color: white;
-    color: #3388ff;
+    color: #3498db;
     cursor: pointer;
-    border-radius: 5px;
+    border-radius: 8px;
     transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 #controls button:hover {
-    background-color: #e6f2ff;
+    background-color: #3498db;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
 #controls button.active {
-    background-color: #3388ff;
+    background-color: #3498db;
     color: white;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
 }
 
 /* Visualization container */
 #visualization-container {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    padding: 25px;
+    display: grid;
+    grid-template-columns: 250px 1fr 200px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* Info Panel */
+#info-panel {
+    background-color: #f8f9fa;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    min-height: 400px;
+}
+
+#info-panel h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 18px;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 10px;
+}
+
+#info-panel h4 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    color: #34495e;
+    font-size: 16px;
+}
+
+#stats {
+    background-color: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    border-left: 4px solid #3498db;
+}
+
+#stats p {
+    margin: 8px 0;
+    color: #555;
+    font-size: 14px;
+}
+
+#node-info {
+    background-color: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #e74c3c;
+}
+
+#node-info p {
+    margin: 8px 0;
+    color: #555;
+    font-size: 14px;
+}
+
+#node-info .hint {
+    color: #95a5a6;
+    font-style: italic;
+    line-height: 1.6;
+}
+
+.routes-list {
+    margin: 10px 0;
+    padding-left: 20px;
+    list-style-type: none;
+}
+
+.routes-list li {
+    padding: 5px 0;
+    color: #555;
+    font-size: 13px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.routes-list li:last-child {
+    border-bottom: none;
+}
+
+/* Legend */
+#legend {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    min-height: 200px;
+}
+
+#legend h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #2c3e50;
+    font-size: 16px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+}
+
+.legend-item {
     display: flex;
-    justify-content: center;
     align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #555;
+}
+
+.legend-circle {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.legend-circle.large {
+    background-color: #e74c3c;
+    width: 20px;
+    height: 20px;
+}
+
+.legend-circle.medium {
+    background-color: #f39c12;
+    width: 16px;
+    height: 16px;
+}
+
+.legend-circle.small {
+    background-color: #3498db;
+    width: 12px;
+    height: 12px;
+}
+
+.legend-line {
+    width: 30px;
+    height: 2px;
+    background-color: #999;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.legend-line.thick {
+    height: 4px;
+    background-color: #e74c3c;
+}
+
+.legend-line.thin {
+    height: 1px;
+    background-color: #999;
+}
+
+/* SVG styling */
+svg {
+    border-radius: 8px;
+    background-color: #fafafa;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.node {
+    transition: all 0.2s ease;
+}
+
+.node:hover {
+    filter: brightness(1.2);
+}
+
+.link {
+    transition: all 0.3s ease;
+}
+
+.label {
+    text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white;
+    transition: opacity 0.3s ease;
 }
 
 /* Map styling */
 #map {
     border-radius: 8px;
     z-index: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    grid-column: 1 / -1;
 }
 
-/* SVG styling for force layout */
-svg {
+.flight-route {
+    transition: all 0.3s ease;
+}
+
+.flight-route:hover {
+    opacity: 1 !important;
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
     border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+    margin: 15px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+    #visualization-container {
+        grid-template-columns: 220px 1fr 180px;
+    }
+}
+
+@media (max-width: 1200px) {
+    #visualization-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+    }
+
+    #info-panel, #legend {
+        min-height: auto;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#info-panel, #legend, svg {
+    animation: fadeIn 0.5s ease;
+}
+
+/* Scrollbar styling */
+#node-info::-webkit-scrollbar {
+    width: 6px;
+}
+
+#node-info::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#node-info::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+#node-info::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
